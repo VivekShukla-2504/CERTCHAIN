@@ -119,9 +119,8 @@ certchain-full/
         └── pages/                      # Login, Signup, Issue, Verify
 ```
 
-## If something goes wrong tonight
+## If something goes wrong
 
 - **MongoDB connection error** → make sure `mongod` is running, or use a free MongoDB Atlas cluster and paste its connection string into `MONGO_URI`.
 - **"insufficient funds" or contract errors** → make sure `npx hardhat node` (Terminal 1) is still running and you copied its private key/address correctly.
-- **CORS errors in browser console** → make sure backend is running on port 5000 and frontend's `REACT_APP_API_URL` (in `frontend/.env` if you create one) points to `http://localhost:5000/api`.
-- **Out of time to get the real blockchain running** → the `CertChain-Demo.html` file from earlier in this chat works standalone with zero setup and demonstrates the exact same hash-verification logic — good as a backup demo.
+- **CORS errors in browser console** → make sure backend is running on port 5000 and frontend's `REACT_APP_API_URL` (in `frontend/.env` if you create one) points to `http://localhost:5000/api`
