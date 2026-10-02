@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -9,9 +9,14 @@ import Verify from "./pages/Verify";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Certificates from "./pages/Certificates";
+import Students from "./pages/Students";
+import Settings from "./pages/Settings";
+import Audit from "./pages/Audit";
+import PlatformAdmin from "./pages/PlatformAdmin";
 import CertificateDetails from "./pages/CertificateDetails";
 import NotFound from "./pages/NotFound";
 import { AuthenticatedLayout, PublicHeader } from "./components/Layout";
+import { ThemeContext } from "./components/UI";
 
 function isLoggedIn() {
   return !!localStorage.getItem("certchain_token");
@@ -30,7 +35,15 @@ function PublicCertificateRoute() {
 }
 
 export default function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem("certchain_theme") || "light");
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("certchain_theme", theme);
+  }, [theme]);
+
   return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="app-shell">
       <Routes>
@@ -39,9 +52,13 @@ export default function App() {
         <Route path="/signup" element={<><PublicHeader /><Signup /></>} />
         <Route path="/forgot-password" element={<><PublicHeader /><ForgotPassword /></>} />
         <Route path="/reset-password" element={<><PublicHeader /><ResetPassword /></>} />
+        <Route path="/platform-admin" element={<><PublicHeader /><PlatformAdmin /></>} />
         <Route path="/verify" element={<VerifyRoute />} />
         <Route path="/verify/:certificateId" element={<PublicCertificateRoute />} />
         <Route path="/dashboard" element={<PrivateRoute><AuthenticatedLayout><Dashboard /></AuthenticatedLayout></PrivateRoute>} />
+        <Route path="/students" element={<PrivateRoute><AuthenticatedLayout><Students /></AuthenticatedLayout></PrivateRoute>} />
+        <Route path="/settings" element={<PrivateRoute><AuthenticatedLayout><Settings /></AuthenticatedLayout></PrivateRoute>} />
+        <Route path="/audit" element={<PrivateRoute><AuthenticatedLayout><Audit /></AuthenticatedLayout></PrivateRoute>} />
         <Route path="/certificates" element={<PrivateRoute><AuthenticatedLayout><Certificates /></AuthenticatedLayout></PrivateRoute>} />
         <Route path="/certificates/:certId" element={<PrivateRoute><AuthenticatedLayout><CertificateDetails /></AuthenticatedLayout></PrivateRoute>} />
         <Route
@@ -56,5 +73,6 @@ export default function App() {
       </Routes>
       </div>
     </BrowserRouter>
+    </ThemeContext.Provider>
   );
 }

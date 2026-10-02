@@ -8,9 +8,12 @@ const certificateSchema = new mongoose.Schema(
     course: { type: String, required: true },
     grade: { type: String, required: true },
     issueDate: { type: Date, required: true },
+    documentType: { type: String, enum: ["Degree", "Marksheet", "Transcript", "Diploma", "Other"] },
     institutionId: { type: String, required: true },
     issuerWallet: { type: String, required: true },
     certHash: { type: String, required: true }, // SHA-256 hex digest
+    documentHash: { type: String }, // SHA-256 hash of the uploaded PDF
+    generatedPdf: { type: Boolean, default: false },
     ipfsCid: { type: String }, // optional pointer to the stored PDF on IPFS
     txHash: { type: String }, // blockchain transaction hash, available after submission
     status: { type: String, enum: ["pending", "submitted", "confirmed", "failed"], default: "pending", index: true },

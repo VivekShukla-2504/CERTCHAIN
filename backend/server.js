@@ -7,7 +7,10 @@ const mongoose = require("mongoose");
 const authRoutes = require("./routes/auth");
 const certificateRoutes = require("./routes/certificates");
 const verifyRoutes = require("./routes/verify");
-const { authLimiter, verifyLimiter } = require("./middleware/security");
+const institutionRoutes = require("./routes/institution");
+const auditRoutes = require("./routes/audit");
+const platformRoutes = require("./routes/platform");
+const { authLimiter, verifyLimiter, platformAdminLimiter } = require("./middleware/security");
 
 const app = express();
 const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
@@ -36,6 +39,9 @@ app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/verify", verifyLimiter, verifyRoutes);
+app.use("/api/institution", institutionRoutes);
+app.use("/api/audit", auditRoutes);
+app.use("/api/platform", platformAdminLimiter, platformRoutes);
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 app.use((err, req, res, next) => {

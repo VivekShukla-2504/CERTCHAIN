@@ -43,11 +43,13 @@ router.post("/signup", async (req, res) => {
       institutionId: normalizedInstitutionId,
       email: normalizedEmail,
       passwordHash,
-      walletAddress: walletAddress.trim()
+      walletAddress: walletAddress.trim(),
+      approvalStatus: process.env.INSTITUTION_APPROVAL_REQUIRED === "true" ? "pending" : "approved",
+      role: "admin"
     });
 
     res.status(201).json({
-      message: "Institution registered",
+      message: institution.approvalStatus === "pending" ? "Institution registered and awaiting approval" : "Institution registered",
       institution: { id: institution._id, name: institution.name, institutionId: institution.institutionId }
     });
   } catch (err) {
@@ -66,6 +68,12 @@ router.post("/login", async (req, res) => {
     if (!institution) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
+    if (institution.approvalStatus === "pending") {
+      return res.status(403).json({ message: "Institution registration is awaiting approval" });
+    }
+    if (institution.approvalStatus === "suspended") {
+      return res.status(403).json({ message: "Institution access has been suspended" });
+    }
 
     const match = await bcrypt.compare(password, institution.passwordHash);
     if (!match) {
@@ -76,7 +84,8 @@ router.post("/login", async (req, res) => {
       {
         id: institution._id,
         institutionId: institution.institutionId,
-        walletAddress: institution.walletAddress
+        walletAddress: institution.walletAddress,
+        role: institution.role || "admin"
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
@@ -84,7 +93,7 @@ router.post("/login", async (req, res) => {
 
     res.json({
       token,
-      institution: { id: institution._id, name: institution.name, institutionId: institution.institutionId }
+      institution: { id: institution._id, name: institution.name, institutionId: institution.institutionId, role: institution.role || "admin" }
     });
   } catch (err) {
     res.status(500).json({ message: "Login failed" });

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Brand, Button } from "./UI";
+import { Brand, Button, ThemeToggle } from "./UI";
 
 function getInstitution() {
   try {
@@ -27,6 +27,7 @@ export function PublicHeader() {
       <nav className="nav-links" aria-label="Primary navigation">
         <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/verify">Verify</NavLink>
         <Link to="/login" className="button button-secondary topbar-signin">Institution sign in</Link>
+        <ThemeToggle />
       </nav>
       <span className="mobile-current" aria-label="Current page">{location.pathname === "/verify" ? "Verification" : "CertChain"}</span>
     </header>
@@ -35,6 +36,8 @@ export function PublicHeader() {
 
 export function AppSidebar({ mobileOpen, onClose }) {
   const institution = getInstitution();
+  const role = institution?.role || "admin";
+  const canIssue = role === "admin" || role === "issuer";
   const initials = (institution?.name || "Institution").slice(0, 1).toUpperCase();
   return (
     <>
@@ -52,8 +55,11 @@ export function AppSidebar({ mobileOpen, onClose }) {
         <nav className="side-nav" aria-label="Workspace navigation">
           <span className="side-nav-label">Workspace</span>
           <NavItem to="/dashboard" label="Overview" icon="▦" />
+          <NavItem to="/students" label="Students" icon="♙" />
           <NavItem to="/certificates" label="Certificates" icon="▤" />
-          <NavItem to="/issue" label="Issue certificate" icon="＋" />
+          {role === "admin" && <NavItem to="/settings" label="Privacy settings" icon="⚙" />}
+          <NavItem to="/audit" label="Audit history" icon="≡" />
+          {canIssue && <NavItem to="/issue" label="Issue certificate" icon="＋" />}
           <NavItem to="/verify" label="Verify certificate" icon="⌕" />
         </nav>
         <div className="sidebar-footer">
@@ -69,7 +75,7 @@ export function AppSidebar({ mobileOpen, onClose }) {
 export function AuthenticatedLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const pageTitle = location.pathname.startsWith("/issue") ? "Issue certificate" : location.pathname.startsWith("/dashboard") ? "Dashboard" : "Verify certificate";
+  const pageTitle = location.pathname.startsWith("/issue") ? "Issue certificate" : location.pathname.startsWith("/dashboard") ? "Dashboard" : location.pathname.startsWith("/students") ? "Students" : location.pathname.startsWith("/settings") ? "Privacy settings" : location.pathname.startsWith("/audit") ? "Audit history" : location.pathname.startsWith("/certificates") ? "Certificates" : "Verify certificate";
   return (
     <div className="workspace-layout">
       <AppSidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
@@ -77,7 +83,7 @@ export function AuthenticatedLayout({ children }) {
         <header className="workspace-header">
           <button className="mobile-menu-button" onClick={() => setMobileOpen(true)} aria-label="Open navigation">☰</button>
           <div className="breadcrumbs"><Link to="/dashboard">Workspace</Link><span>/</span><strong>{pageTitle}</strong></div>
-          <div className="workspace-header-actions"><span className="header-network"><span className="status-dot" /> Local network</span></div>
+          <div className="workspace-header-actions"><span className="header-network"><span className="status-dot" /> Local network</span><ThemeToggle /></div>
         </header>
         {children}
       </main>

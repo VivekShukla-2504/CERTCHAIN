@@ -16,4 +16,12 @@ const verifyLimiter = rateLimit({
   message: { message: "Too many verification requests. Try again shortly." }
 });
 
-module.exports = { authLimiter, verifyLimiter };
+const platformAdminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { message: "Too many platform administration attempts. Try again later." }
+});
+
+module.exports = { authLimiter, verifyLimiter, platformAdminLimiter };

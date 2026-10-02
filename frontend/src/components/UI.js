@@ -1,5 +1,13 @@
 import React from "react";
 
+export const ThemeContext = React.createContext({ theme: "light", setTheme: () => {} });
+
+export function ThemeToggle() {
+  const { theme, setTheme } = React.useContext(ThemeContext);
+  const dark = theme === "dark";
+  return <button className="theme-toggle" type="button" onClick={() => setTheme(dark ? "light" : "dark")} aria-label={`Switch to ${dark ? "light" : "dark"} mode`} title={`Switch to ${dark ? "light" : "dark"} mode`}><span aria-hidden="true">{dark ? "☼" : "☾"}</span><span>{dark ? "Light" : "Dark"}</span></button>;
+}
+
 export function Button({ children, variant = "primary", loading = false, className = "", ...props }) {
   return (
     <button className={`button button-${variant} ${className}`} disabled={loading || props.disabled} {...props}>
@@ -38,5 +46,5 @@ export function Alert({ type = "error", children }) {
 }
 
 export function Brand() {
-  return <span className="brand"><span className="brand-mark">C</span> CertChain</span>;
+  return <span className="brand"><span className="brand-mark" aria-hidden="true">C</span><span className="brand-lockup"><strong>CertChain</strong><small>Academic credential registry</small></span></span>;
 }

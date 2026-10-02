@@ -5,14 +5,16 @@ const crypto = require("crypto");
  * The same field order/format MUST be used at issuance and at verification
  * time, otherwise a legitimate certificate will fail to match.
  */
-function hashCertificateData({ candidateName, rollNumber, course, grade, issueDate, institutionId }) {
+function hashCertificateData({ candidateName, rollNumber, course, grade, issueDate, institutionId, documentHash, documentType }) {
   const payload = JSON.stringify({
     candidateName,
     rollNumber,
     course,
     grade,
     issueDate: new Date(issueDate).toISOString(),
-    institutionId
+    institutionId,
+    ...(documentHash ? { documentHash } : {}),
+    ...(documentType ? { documentType } : {})
   });
   return crypto.createHash("sha256").update(payload).digest("hex");
 }

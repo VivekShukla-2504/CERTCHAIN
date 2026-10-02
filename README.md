@@ -3,7 +3,7 @@
 Blockchain-Based Secure Academic Certificate Issuance and Verification System
 JNU · Blockchain Technology · Nimmi Sahu, Vartika Yadav, Vivek Shukla
 
-Real stack: React, Node.js/Express, MongoDB, Solidity smart contract (Hardhat), ethers.js, JWT auth, IPFS (optional).
+Real stack: React, Node.js/Express, MongoDB, Solidity smart contract (Hardhat), ethers.js and JWT auth. Certificate PDFs are stored locally by the backend; IPFS is optional and not required.
 
 You need **4 terminals open at once**. Do these in order.
 
@@ -64,6 +64,17 @@ Open `.env` and fill in:
 - `PRIVATE_KEY` — the private key you copied in step 2
 - `CONTRACT_ADDRESS` — the address you copied in step 3
 
+Optional governance settings:
+- `INSTITUTION_APPROVAL_REQUIRED=true` makes new institution signups wait for platform approval. Existing accounts without a status remain approved.
+- Set `PLATFORM_ADMIN_KEY` to a long random secret to enable the restricted `/platform-admin` page. Keep this key private; the page sends it only in admin API requests.
+- Approval and role changes are checked against MongoDB on each protected request, so suspension takes effect for existing sessions too.
+
+Optional local IPFS:
+- Run Kubo with `ipfs daemon` and keep it open.
+- Set `IPFS_API_URL=http://127.0.0.1:5001`, `IPFS_ENABLED=true`, and `IPFS_ORIGIN=http://localhost:3000` in `backend/.env`, then restart the backend. `IPFS_ORIGIN` must match one of Kubo's allowed origins.
+- New certificate PDFs are pinned locally and their CID appears in the certificate record. The gateway link defaults to `http://127.0.0.1:8080/ipfs/<CID>`; set frontend `REACT_APP_IPFS_GATEWAY_URL` if your gateway differs.
+- IPFS CIDs are public addresses. Do not enable this for real student documents unless your institution explicitly approves public distribution or files are encrypted first.
+
 ### Staging signer model
 
 For this free-tier staging setup, `PRIVATE_KEY` is held only by the backend
@@ -96,9 +107,36 @@ Opens `http://localhost:3000` in your browser automatically.
 
 1. Go to **Institution login** → **Register your institution**. For "wallet address", paste any of the test account addresses printed by `npx hardhat node` in Terminal 1.
 2. Log in.
-3. Go to **Issue certificate**, fill the form, submit. This writes the SHA-256 hash to your local blockchain and shows you the transaction hash + a QR code.
-4. Go to **Verify certificate**, paste the Certificate ID → shows "Verified & authentic".
-5. To demonstrate tamper detection: manually edit a certificate's data in MongoDB (e.g. using MongoDB Compass, change the grade), then verify again — it will show hash mismatch, since the on-chain hash no longer matches the recomputed hash of the altered data.
+3. Go to **Issue certificate**, choose a document type, fill in the student fields, then either upload an existing PDF (maximum 10 MB) or choose **Generate official PDF**. The generated template includes the institution, student details, certificate ID and verification QR. Its PDF hash and metadata are committed to the local blockchain after you issue it. If local IPFS is enabled, the PDF is also pinned and its CID is displayed.
+4. A generated PDF preview is signed by a 10-minute, institution-bound preparation token. Editing its details invalidates the preview; generate it again before issuance.
+5. Open **Students** to see a student's documents grouped by normalized roll number, or **Certificates** to browse individual records.
+6. Go to public **Verify certificate**, enter the ID, upload the exact PDF, and enter the fields printed on it. A changed PDF or changed field should fail verification.
+7. Open **Privacy settings** to choose which verified details are displayed publicly. The default hides grade and roll number. **Audit history** supports action/date filters and CSV export.
+8. For tamper detection, make a copy of the issued PDF, change its contents, and verify the copy using the same ID and metadata. Keep the original for a successful verification demo.
+
+### Institution approval and roles
+
+Set `INSTITUTION_APPROVAL_REQUIRED=true` and configure a private `PLATFORM_ADMIN_KEY` in `backend/.env`, then restart the backend. New signups remain pending until an operator opens `http://localhost:3000/platform-admin` and approves them. The platform key endpoint is rate-limited. The existing data model has one login account per institution; its role can be set to `admin`, `issuer`, or `reviewer` (reviewers are read-only). Separate staff invitations are not part of this version.
+
+### Local PDF storage and privacy
+
+PDFs are stored under `backend/uploads/certificates/`, outside MongoDB and ignored by Git. Back up this directory along with the database if you need to preserve issued source PDFs. The institution-only download endpoint is protected by JWT. Public verification checks the submitted PDF and metadata against the on-chain hash; disclosure settings only control which verified fields are displayed. IPFS is an optional extra copy and does not make the PDF private.
+
+Institution admins can download a ZIP backup from **Privacy settings**. It contains certificate metadata, available PDFs, and audit entries. Restore validates the institution ID and on-chain hashes, skips conflicts, and requires the original blockchain records to still be available. Keep the ZIP private because it contains student data.
+
+The ZIP backup/export is limited to 1,000 certificates and 100 MB of PDF data. The current institution model has one login per institution; `admin`, `issuer` and `reviewer` control that account's permissions. Additional staff invitations require a separate user-account model.
+
+### Tests
+
+```bash
+# from project root
+npx hardhat test
+
+# from backend
+npm test
+```
+
+The frontend also supports a saved light/dark theme toggle in the public and institution headers.
 
 ## Project structure
 
@@ -110,13 +148,13 @@ certchain-full/
 ├── backend/
 │   ├── server.js                       # Express entry point
 │   ├── models/                         # MongoDB schemas
-│   ├── routes/                         # auth, certificates, verify
+│   ├── routes/                         # auth, certificates, verify, audit, institution/platform admin
 │   ├── middleware/auth.js              # JWT check
-│   └── utils/                          # hashing, blockchain, IPFS
+│   └── utils/                          # hashing, PDF generation/upload, backup, audit, IPFS
 └── frontend/
     └── src/
         ├── App.js                      # routes
-        └── pages/                      # Login, Signup, Issue, Verify
+        └── pages/                      # institution workspace, bulk issue, public verify, settings, audit
 ```
 
 ## If something goes wrong tonight

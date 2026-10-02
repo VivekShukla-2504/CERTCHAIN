@@ -19,7 +19,7 @@ export default function Login() {
       const res = await api.post("/auth/login", { email, password });
       localStorage.setItem("certchain_token", res.data.token);
       localStorage.setItem("certchain_institution", JSON.stringify(res.data.institution));
-      navigate("/issue");
+      navigate(res.data.institution.role === "reviewer" ? "/certificates" : "/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     } finally {
