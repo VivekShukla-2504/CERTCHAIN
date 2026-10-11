@@ -218,7 +218,8 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     if (certificate && !chainConfirmed) {
       await Certificate.updateOne({ _id: certificate._id }, { $set: { status: "failed" } }).catch(() => {});
     }
-    res.status(500).json({ message: "Issuance failed" });
+    console.error(`[${req.requestId || "no-request-id"}] Certificate issuance failed: ${err.message}`);
+    res.status(500).json({ message: "Issuance failed", requestId: req.requestId });
   }
 });
 
