@@ -14,7 +14,10 @@ const certificateSchema = new mongoose.Schema(
     certHash: { type: String, required: true }, // SHA-256 hex digest
     documentHash: { type: String }, // SHA-256 hash of the uploaded PDF
     generatedPdf: { type: Boolean, default: false },
-    ipfsCid: { type: String }, // optional pointer to the stored PDF on IPFS
+    ipfsCid: { type: String },
+    ipfsIv: { type: String },
+    ipfsAuthTag: { type: String },
+    ipfsEncryptionVersion: { type: Number },
     txHash: { type: String }, // blockchain transaction hash, available after submission
     status: { type: String, enum: ["pending", "submitted", "confirmed", "failed"], default: "pending", index: true },
     idempotencyKey: { type: String, unique: true, sparse: true, index: true },

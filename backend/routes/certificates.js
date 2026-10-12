@@ -12,7 +12,13 @@ const { receivePdf, isPdfBuffer } = require("../utils/pdfUpload");
 const { recordAuditEvent } = require("../utils/audit");
 const { generateCertificatePdf } = require("../utils/certificatePdf");
 const { signPreparedCertificate, verifyPreparedCertificate } = require("../utils/preparedCertificate");
-const { isIPFSEnabled, uploadToIPFS } = require("../utils/ipfs");
+const {
+  isIPFSEnabled,
+  encryptForIPFS,
+  decryptFromIPFS,
+  uploadToIPFS,
+  downloadFromIPFS
+} = require("../utils/ipfs");
 const { validateCertificateInput } = require("../utils/validation");
 
 const router = express.Router();
@@ -109,11 +115,14 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
     }
     const documentHash = hashFileBuffer(req.file.buffer);
     let ipfsCid;
+    let ipfsEncryption;
     if (isIPFSEnabled()) {
       try {
-        ipfsCid = await uploadToIPFS(req.file.buffer);
+        ipfsEncryption = encryptForIPFS(req.file.buffer);
+        ipfsCid = await uploadToIPFS(ipfsEncryption.encryptedBuffer);
       } catch (error) {
-        return res.status(503).json({ message: "IPFS is enabled but the Kubo daemon is unavailable" });
+        console.error(`[${req.requestId || "no-request-id"}] Encrypted IPFS upload failed: ${error.message}`);
+        return res.status(503).json({ message: "Encrypted IPFS upload failed; check the IPFS service and encryption key configuration" });
       }
     }
     const certHash = hashCertificateData({
@@ -150,7 +159,14 @@ router.post("/issue", requireAuth, requireRole("admin", "issuer"), receivePdf, a
           idempotencyKey,
           status: "pending"
         },
-        ...(ipfsCid ? { $set: { ipfsCid } } : {})
+        ...(ipfsCid ? {
+          $set: {
+            ipfsCid,
+            ipfsIv: ipfsEncryption.iv,
+            ipfsAuthTag: ipfsEncryption.authTag,
+            ipfsEncryptionVersion: ipfsEncryption.encryptionVersion
+          }
+        } : {})
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
@@ -233,9 +249,25 @@ router.get("/:certId/document", requireAuth, async (req, res) => {
     if (!certificate || !certificate.documentHash) {
       return res.status(404).json({ message: "Certificate PDF not found" });
     }
-    return res.download(certificatePdfPath(certificate.certId), `${certificate.certId}.pdf`, (error) => {
-      if (error && !res.headersSent) res.status(404).json({ message: "Certificate PDF not found" });
-    });
+    let pdf;
+    try {
+      pdf = await fs.readFile(certificatePdfPath(certificate.certId));
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      if (!certificate.ipfsCid || !certificate.ipfsIv || !certificate.ipfsAuthTag || !certificate.ipfsEncryptionVersion) {
+        return res.status(404).json({ message: "Certificate PDF not found" });
+      }
+      const encryptedPdf = await downloadFromIPFS(certificate.ipfsCid);
+      pdf = decryptFromIPFS(encryptedPdf, {
+        iv: certificate.ipfsIv,
+        authTag: certificate.ipfsAuthTag,
+        encryptionVersion: certificate.ipfsEncryptionVersion
+      });
+      if (hashFileBuffer(pdf) !== certificate.documentHash) {
+        return res.status(500).json({ message: "Recovered PDF does not match its stored integrity hash" });
+      }
+    }
+    return res.type("application/pdf").attachment(`${certificate.certId}.pdf`).send(pdf);
   } catch (err) {
     return res.status(500).json({ message: "Certificate PDF unavailable" });
   }

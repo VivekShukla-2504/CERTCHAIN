@@ -3,7 +3,7 @@
 Blockchain-Based Secure Academic Certificate Issuance and Verification System
 JNU · Blockchain Technology · Nimmi Sahu, Vartika Yadav, Vivek Shukla
 
-Real stack: React, Node.js/Express, MongoDB, Solidity smart contract (Hardhat), ethers.js and JWT auth. Certificate PDFs are stored locally by the backend; IPFS is optional and not required.
+Real stack: React, Node.js/Express, MongoDB, Solidity smart contract (Hardhat), ethers.js and JWT auth. Certificate PDFs are stored locally by the backend; optional IPFS backups are encrypted before upload.
 
 You need **4 terminals open at once**. Do these in order.
 
@@ -69,11 +69,12 @@ Optional governance settings:
 - Set `PLATFORM_ADMIN_KEY` to a long random secret to enable the restricted `/platform-admin` page. Keep this key private; the page sends it only in admin API requests.
 - Approval and role changes are checked against MongoDB on each protected request, so suspension takes effect for existing sessions too.
 
-Optional local IPFS:
-- Run Kubo with `ipfs daemon` and keep it open.
-- Set `IPFS_API_URL=http://127.0.0.1:5001`, `IPFS_ENABLED=true`, and `IPFS_ORIGIN=http://localhost:3000` in `backend/.env`, then restart the backend. `IPFS_ORIGIN` must match one of Kubo's allowed origins.
-- New certificate PDFs are pinned locally and their CID appears in the certificate record. The gateway link defaults to `http://127.0.0.1:8080/ipfs/<CID>`; set frontend `REACT_APP_IPFS_GATEWAY_URL` if your gateway differs.
-- IPFS CIDs are public addresses. Do not enable this for real student documents unless your institution explicitly approves public distribution or files are encrypted first.
+Optional IPFS:
+- The backend encrypts each PDF with AES-256-GCM before pinning it. Create a fresh 32-byte key (64 hexadecimal characters) with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and store it only as `IPFS_ENCRYPTION_KEY` in the backend's secret environment. Back it up securely; losing it makes IPFS backups unrecoverable.
+- For local Kubo, set `IPFS_PROVIDER=kubo`, run `ipfs daemon`, and set `IPFS_API_URL=http://127.0.0.1:5001`. For Pinata, set `IPFS_PROVIDER=pinata` and create an API JWT in the Pinata dashboard; store it as `IPFS_API_TOKEN`. Pinata's free plan currently includes 1 GB storage. Pinata uploads encrypted bytes to public IPFS, and downloads use `IPFS_GATEWAY_URL` (default `https://gateway.pinata.cloud/ipfs`).
+- Set `IPFS_ENABLED=true` only after the provider credentials and encryption key are configured. `IPFS_ORIGIN` is used for Kubo CORS where applicable. Restart/redeploy the backend after changing environment variables.
+- Each new IPFS CID identifies encrypted content, not a directly viewable PDF. Authorized source-PDF downloads use the backend; if its local file is missing, it retrieves the ciphertext from IPFS, decrypts it server-side, and checks the original SHA-256 before returning the file.
+- Do not create public gateway links for student files. Any PDFs pinned before encryption was added may be plaintext; treat those CIDs as exposed and do not reuse/share them.
 
 ### Staging signer model
 
@@ -107,7 +108,7 @@ Opens `http://localhost:3000` in your browser automatically.
 
 1. Go to **Institution login** → **Register your institution**. For "wallet address", paste any of the test account addresses printed by `npx hardhat node` in Terminal 1.
 2. Log in.
-3. Go to **Issue certificate**, choose a document type, fill in the student fields, then either upload an existing PDF (maximum 10 MB) or choose **Generate official PDF**. The generated template includes the institution, student details, certificate ID and verification QR. Its PDF hash and metadata are committed to the local blockchain after you issue it. If local IPFS is enabled, the PDF is also pinned and its CID is displayed.
+3. Go to **Issue certificate**, choose a document type, fill in the student fields, then either upload an existing PDF (maximum 10 MB) or choose **Generate official PDF**. The generated template includes the institution, student details, certificate ID and verification QR. Its PDF hash and metadata are committed to the local blockchain after you issue it. If IPFS is enabled, an encrypted copy is pinned and its CID is displayed.
 4. A generated PDF preview is signed by a 10-minute, institution-bound preparation token. Editing its details invalidates the preview; generate it again before issuance.
 5. Open **Students** to see a student's documents grouped by normalized roll number, or **Certificates** to browse individual records.
 6. Go to public **Verify certificate**, enter the ID, upload the exact PDF, and enter the fields printed on it. A changed PDF or changed field should fail verification.
@@ -120,7 +121,7 @@ Set `INSTITUTION_APPROVAL_REQUIRED=true` and configure a private `PLATFORM_ADMIN
 
 ### Local PDF storage and privacy
 
-PDFs are stored under `backend/uploads/certificates/`, outside MongoDB and ignored by Git. Back up this directory along with the database if you need to preserve issued source PDFs. The institution-only download endpoint is protected by JWT. Public verification checks the submitted PDF and metadata against the on-chain hash; disclosure settings only control which verified fields are displayed. IPFS is an optional extra copy and does not make the PDF private.
+PDFs are stored under `backend/uploads/certificates/`, outside MongoDB and ignored by Git. Back up this directory along with the database if you need to preserve issued source PDFs. The institution-only download endpoint is protected by JWT. Public verification checks the submitted PDF and metadata against the on-chain hash; disclosure settings only control which verified fields are displayed. Optional IPFS copies are AES-256-GCM encrypted before upload, but the backend's encryption key must be backed up separately and protected.
 
 Institution admins can download a ZIP backup from **Privacy settings**. It contains certificate metadata, available PDFs, and audit entries. Restore validates the institution ID and on-chain hashes, skips conflicts, and requires the original blockchain records to still be available. Keep the ZIP private because it contains student data.
 
